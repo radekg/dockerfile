@@ -9,6 +9,12 @@ if [ -f `pwd`/.dockerfile ]; then
     source `pwd`/.dockerfile
 fi
 
+export DOCKERFILE_DEFAULT_IMAGE=${DOCKERFILE_DEFAULT_IMAGE-dockerfile-default-image}
+export DOCKER_REGISTRY=${DOCKER_REGISTRY-""}
+export IMAGE_NAME=${IMAGE_NAME-"$DOCKERFILE_DEFAULT_IMAGE"}
+export IMAGE_VERSION=${IMAGE_VERSION-"latest"}
+export MOUNT_WORKDIR_AS=${MOUNT_WORKDIR_AS-/dockerfile}
+
 _base=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 command() {
@@ -39,15 +45,23 @@ warn() {
 }
 
 clean_containers() {
-  _count=$(docker ps -a | grep $IMAGE_NAME | wc -l)
-  docker stop $(docker ps -a | grep $IMAGE_NAME | awk '{print $1}') 2>/dev/null
-  docker rm $(docker ps -a | grep $IMAGE_NAME | awk '{print $1}') 2>/dev/null
+  _image_pattern=$IMAGE_NAME
+  if [ -n "$DOCKER_REGISTRY" ]; then
+    _image_pattern="$DOCKER_REGISTRY/${_image_pattern}"
+  fi
+  _count=$(docker ps -a | grep "${_image_pattern}.*$IMAGE_VERSION" | wc -l)
+  docker stop $(docker ps -a | grep "${_image_pattern}.*$IMAGE_VERSION" | awk '{print $1}') 2>/dev/null
+  docker rm $(docker ps -a | grep "${_image_pattern}.*$IMAGE_VERSION" | awk '{print $1}') 2>/dev/null
   echo $_count
 }
 
 clean_images() {
-  _count=$(docker images | grep "$DOCKER_REGISTRY/$IMAGE_NAME.*$IMAGE_VERSION" | awk '{print $3}' | wc -l)
-  docker rmi $(docker images | grep "$DOCKER_REGISTRY/$IMAGE_NAME.*$IMAGE_VERSION" | awk '{print $3}') 2>/dev/null
+  _image_pattern=$IMAGE_NAME
+  if [ -n "$DOCKER_REGISTRY" ]; then
+    _image_pattern="$DOCKER_REGISTRY/${_image_pattern}"
+  fi
+  _count=$(docker images | grep "${_image_pattern}.*$IMAGE_VERSION" | awk '{print $3}' | wc -l)
+  docker rmi $(docker images | grep "${_image_pattern}.*$IMAGE_VERSION" | awk '{print $3}') 2>/dev/null
   echo $_count
 }
 
@@ -71,14 +85,23 @@ project_type() {
 }
 
 project_run() {
-  if [ $(docker images | grep "$DOCKER_REGISTRY/$IMAGE_NAME.*$IMAGE_VERSION" | wc -l) -eq 0 ]; then
-    error "No image for $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_VERSION found. Please run \033[4mdockerfile build\033[0m."
+  _image_pattern=$IMAGE_NAME
+  if [ -n "$DOCKER_REGISTRY" ]; then
+    _image_pattern="$DOCKER_REGISTRY/${_image_pattern}"
+  fi
+  
+  if [ $(docker images | grep "${_image_pattern}.*$IMAGE_VERSION" | wc -l) -eq 0 ]; then
+    error "No image for ${_image_pattern}:$IMAGE_VERSION found. Please run \033[4mdockerfile build\033[0m."
   fi
   command "run"
-  step "stopping and removing existing $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_VERSION containers:"
+  step "stopping and removing existing ${_image_pattern}:$IMAGE_VERSION containers:"
   clean_containers
-  step "starting $IMAGE_NAME $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_VERSION:"
-  docker run -ti --name $IMAGE_NAME $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_VERSION
+  step "starting $IMAGE_NAME ${_image_pattern}:$IMAGE_VERSION:"
+  if [ -n "$MOUNT_WORKDIR_AS" ]; then
+    docker run -ti --name $IMAGE_NAME -v `pwd`:$MOUNT_WORKDIR_AS ${_image_pattern}:$IMAGE_VERSION
+  else
+    docker run -ti --name $IMAGE_NAME ${_image_pattern}:$IMAGE_VERSION
+  fi
   line
 }
 
@@ -88,6 +111,11 @@ project_run() {
 
 project_deploy() {
   command "deploy"
+
+  if [ -z "$DOCKER_REGISTRY" ]; then
+    error ".dockerfile does not declare any registry. Can't deploy."
+  fi
+
   if [ $(docker images | grep "$DOCKER_REGISTRY/$IMAGE_NAME.*$IMAGE_VERSION" | wc -l) -eq 0 ]; then
     error "No image for $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_VERSION found. Please run \033[4mdockerfile build\033[0m."
   fi
@@ -132,8 +160,8 @@ project_build() {
     eval "project_build_$pt"
     docker build --no-cache --force-rm=true -t $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_VERSION .
   else
-    step "building project:"
-    warn "Unknown project type. I could not reliably establish project type used for this directory."
+    step "building project Dockerfile only:"
+    docker build --no-cache --force-rm=true -t $IMAGE_NAME:$IMAGE_VERSION .
   fi
 }
 
@@ -166,10 +194,14 @@ project_clean_sbt() {
 
 project_clean() {
   command "clean"
-  step "stopping and removing existing $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_VERSION containers:"
+  _image_pattern=$IMAGE_NAME
+  if [ -n "$DOCKER_REGISTRY" ]; then
+    _image_pattern="$DOCKER_REGISTRY/${_image_pattern}"
+  fi
+  step "stopping and removing existing ${_image_pattern}:$IMAGE_VERSION containers:"
   line "stopped and removed $(clean_containers) conatiners"
-  step "removing existing $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_VERSION image:"
-  line "removed $(clean_images) containers"
+  step "removing existing ${_image_pattern}:$IMAGE_VERSION image:"
+  line "removed $(clean_images) images"
   if [ -f `pwd`/Dockerfile-clean.sh ]; then
     step "executing custom provided clean script:"
     `pwd`/Dockerfile-clean.sh
@@ -177,8 +209,6 @@ project_clean() {
     pt=$(project_type)
     if [ "$pt" != "unknown" ]; then
       eval "project_clean_$pt"
-    else
-      warn "Unknown project type. I could not reliably establish project type used for this directory."
     fi
   fi
   line
