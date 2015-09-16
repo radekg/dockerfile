@@ -29,7 +29,7 @@ You can specify custom actons for your build.
 
 ## dockerfile run
 
-Start a container from an image. The container will be started in an interactive mode - using {{-ti}} options.
+Start a container from an image. The container will be started in an interactive mode - using `-ti` options.
 
 ## dockerfile docker-push
 
