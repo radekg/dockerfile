@@ -130,7 +130,6 @@ project_deploy() {
 
 project_build_maven() {
   export MAVEN_OPTS='-Xmx1g -XX:MaxPermSize=256m'
-  step "building project:"
   _count_deb=`ls -la $(pwd)/target/*.deb 2>/dev/null | wc -l`
   if [ $_count_deb -eq 0 ]; then
     line "I could not find a DEB package in $(pwd)/target, going to run \033[4mmvn package\033[0m..."
@@ -155,13 +154,20 @@ project_build_erl_rebar() {
 
 project_build() {
   command "build"
+  
+  _image_pattern=$IMAGE_NAME
+  if [ -n "$DOCKER_REGISTRY" ]; then
+    _image_pattern="$DOCKER_REGISTRY/${_image_pattern}"
+  fi
+
   pt=$(project_type)
   if [ "$pt" != "unknown" ]; then
+    step "building $pt project as $_image_pattern:$IMAGE_VERSION:"
     eval "project_build_$pt"
-    docker build --no-cache --force-rm=true -t $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_VERSION .
+    docker build --no-cache --force-rm=true -t $_image_pattern:$IMAGE_VERSION .
   else
-    step "building project Dockerfile only:"
-    docker build --no-cache --force-rm=true -t $IMAGE_NAME:$IMAGE_VERSION .
+    step "building project Dockerfile only as $_image_pattern:$IMAGE_VERSION:"
+    docker build --no-cache --force-rm=true -t $_image_pattern:$IMAGE_VERSION .
   fi
 }
 
