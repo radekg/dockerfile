@@ -85,6 +85,10 @@ project_type() {
 }
 
 project_run() {
+  _privileged=""
+  if [ "$1" == "privileged" ]; then
+    _privileged=" --privileged"
+  fi
   _image_pattern=$IMAGE_NAME
   if [ -n "$DOCKER_REGISTRY" ]; then
     _image_pattern="$DOCKER_REGISTRY/${_image_pattern}"
@@ -98,9 +102,9 @@ project_run() {
   clean_containers
   step "starting $IMAGE_NAME ${_image_pattern}:$IMAGE_VERSION:"
   if [ -n "$MOUNT_WORKDIR_AS" ]; then
-    docker run -ti --name $IMAGE_NAME -v `pwd`:$MOUNT_WORKDIR_AS ${_image_pattern}:$IMAGE_VERSION
+    docker run ${_privileged} -ti --name $IMAGE_NAME -v `pwd`:$MOUNT_WORKDIR_AS ${_image_pattern}:$IMAGE_VERSION
   else
-    docker run -ti --name $IMAGE_NAME ${_image_pattern}:$IMAGE_VERSION
+    docker run ${_privileged} -ti --name $IMAGE_NAME ${_image_pattern}:$IMAGE_VERSION
   fi
   line
 }
@@ -248,7 +252,7 @@ project_help() {
   line "After a successful build and package step, a docker image will be built using the Docker file supplied."
   line
   line "You can specify custom actons for your build. If you create a "
-  step "dockerfile run"
+  step "dockerfile run (privileged)"
   line "Start a container from an image. The container will be started in an interactive mode - using \033[4m-ti\033[0m options."
   step "dockerfile docker-push"
   line "Upload the image to the docker repository."
@@ -272,7 +276,7 @@ case "$1" in
     project_build
   ;;
   run )
-    project_run
+    project_run $2
   ;;
   docker-push )
     project_deploy
