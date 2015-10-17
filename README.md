@@ -16,6 +16,10 @@ For example:
 
 All dockerfile command should be executed in the directory where .dockerfile and Dockerfile files are located.
 
+# Why?
+
+I'm fed up with creating shell scripts to manage docker images and push them to the private registry. I needed a descriptive method for defining the registry, image name and tag. Here it is.
+
 ## dockerfile build
 
 Build a docker image.
@@ -27,7 +31,7 @@ After a successful build and package step, a docker image will be built using th
 
 You can specify custom actons for your build.
 
-## dockerfile run
+## dockerfile run (privileged)
 
 Start a container from an image. The container will be started in an interactive mode - using `-ti` options.
 
