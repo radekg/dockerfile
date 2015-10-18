@@ -5,7 +5,7 @@
 ## To use, download the file, put in your path, you're ready!
 ## ----------------------------------------------------------
 
-DOCKERFILE_VERSION=1.0.0
+DOCKERFILE_VERSION=1.1.0-WIP
 
 if [ -f `pwd`/.dockerfile ]; then
     source `pwd`/.dockerfile
