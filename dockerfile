@@ -5,6 +5,8 @@
 ## To use, download the file, put in your path, you're ready!
 ## ----------------------------------------------------------
 
+DOCKERFILE_VERSION=1.0.0
+
 if [ -f `pwd`/.dockerfile ]; then
     source `pwd`/.dockerfile
 fi
@@ -82,6 +84,10 @@ project_type() {
   else
     echo "unknown"
   fi
+}
+
+show_version() {
+  echo $DOCKERFILE_VERSION
 }
 
 project_run() {
@@ -268,6 +274,9 @@ project_help() {
 }
 
 case "$1" in
+  version )
+    show_version
+  ;;
   build )
     project_build
   ;;
