@@ -95,6 +95,11 @@ project_run() {
   if [ "$1" == "privileged" ]; then
     _privileged=" --privileged"
   fi
+  _privileged_volumes=""
+  if [ "$1" == "privileged" ]; then
+    _privileged_volumes=" -v /var/run/docker.sock:/var/run/docker.sock"
+  fi
+
   _image_pattern=$IMAGE_NAME
   if [ -n "$DOCKER_REGISTRY" ]; then
     _image_pattern="$DOCKER_REGISTRY/${_image_pattern}"
@@ -108,9 +113,9 @@ project_run() {
   clean_containers
   step "starting $IMAGE_NAME ${_image_pattern}:$IMAGE_VERSION:"
   if [ -n "$MOUNT_WORKDIR_AS" ]; then
-    docker run ${_privileged} -ti --name $IMAGE_NAME -v `pwd`:$MOUNT_WORKDIR_AS ${_image_pattern}:$IMAGE_VERSION
+    docker run ${_privileged} -ti --name $IMAGE_NAME -v `pwd`:$MOUNT_WORKDIR_AS ${_privileged_volumes} ${_image_pattern}:$IMAGE_VERSION
   else
-    docker run ${_privileged} -ti --name $IMAGE_NAME ${_image_pattern}:$IMAGE_VERSION
+    docker run ${_privileged} -ti --name $IMAGE_NAME ${_privileged_volumes} ${_image_pattern}:$IMAGE_VERSION
   fi
   line
 }
